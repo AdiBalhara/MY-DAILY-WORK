@@ -1,0 +1,23 @@
+artifact_path: file:///D:/Git-hub-repos/MY-DAILY-WORK/fraud-detection-system/src/mlruns/1/models/m-4a644b65efba42e1a02b933180c2d657/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.10.20
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.2
+    skops_trusted_types: null
+mlflow_version: 3.10.1
+model_id: m-4a644b65efba42e1a02b933180c2d657
+model_size_bytes: 9245574
+model_uuid: m-4a644b65efba42e1a02b933180c2d657
+prompts: null
+run_id: c9a1abdb98004b129f90cc4881c2685d
+utc_time_created: '2026-03-16 12:56:07.061688'

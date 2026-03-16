@@ -1,0 +1,17 @@
+/env
+/mlruns
+/outputs
+*.log
+*.csv
+*.json
+*.h5
+*.pkl
+*.ckpt
+*.pt
+*.onnx
+*.ipynb_checkpoints
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.vscode/
