@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINEAI — Movie Genre Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #0a0a0a;
+    --surface:      #111111;
+    --surface2:     #1a1a1a;
+    --border:       #222222;
+    --accent:       #e8f53a;
+    --accent2:      #ff4d1c;
+    --accent3:      #3af5e8;
+    --text:         #f0f0f0;
+    --muted:        #666;
+    --font-display: 'Bebas Neue', cursive;
+    --font-body:    'DM Sans', sans-serif;
+    --font-mono:    'DM Mono', monospace;
+    --font-scale:   1;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: clamp(15px, 1.4vw, 17px); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* ── Custom cursor ── */
+  .cursor {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    position: fixed; top: 0; left: 0;
+    pointer-events: none; z-index: 9999;
+    mix-blend-mode: difference;
+  }
+  .cursor-ring {
+    width: 36px; height: 36px;
+    border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    position: fixed; top: 0; left: 0;
+    pointer-events: none; z-index: 9998;
+    opacity: 0.6;
+  }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 48px;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo { font-family: var(--font-display); font-size: 2rem; letter-spacing: 4px; color: var(--accent); }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a {
+    font-size: calc(0.8rem * var(--font-scale)); letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); text-decoration: none;
+    transition: color 0.2s; font-weight: 500;
+  }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-right { display: flex; align-items: center; gap: 20px; }
+  .nav-status {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #555; transition: background 0.3s;
+  }
+  .status-dot.online { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot.offline { background: var(--accent2); }
+
+  /* ── Font size control ── */
+  .font-ctrl { display: flex; align-items: center; gap: 4px; }
+  .font-ctrl-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; font-family: var(--font-body);
+    font-weight: 700; padding: 4px 9px; line-height: 1.4; transition: all 0.2s;
+  }
+  .font-ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .font-ctrl-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,245,58,0.1); }
+  .font-ctrl-btn.sm { font-size: 0.72rem; }
+  .font-ctrl-btn.md { font-size: 0.88rem; }
+  .font-ctrl-btn.lg { font-size: 1.05rem; }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 48px 80px;
+    position: relative; overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 50%, rgba(232,245,58,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 20% 80%, rgba(255,77,28,0.06) 0%, transparent 60%),
+      #0a0a0a;
+  }
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .hero-tag {
+    font-family: var(--font-mono); font-size: calc(0.82rem * var(--font-scale));
+    color: var(--accent); letter-spacing: 3px; text-transform: uppercase;
+    margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
+    position: relative; z-index: 1;
+  }
+  .hero-tag::before { content: ''; width: 40px; height: 1px; background: var(--accent); }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(5rem, 15vw, 14rem);
+    line-height: 0.88; letter-spacing: -1px;
+    position: relative; z-index: 1;
+  }
+  .hero h1 span { color: var(--accent); display: block; }
+  .hero-sub {
+    margin-top: 32px; max-width: 460px;
+    font-size: calc(1.05rem * var(--font-scale)); line-height: 1.7;
+    color: var(--muted); font-weight: 300;
+    position: relative; z-index: 1;
+  }
+  .hero-cta {
+    display: flex; gap: 16px; margin-top: 40px; flex-wrap: wrap;
+    position: relative; z-index: 1;
+  }
+  .btn {
+    padding: 14px 32px; font-size: calc(0.82rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase;
+    text-decoration: none; font-weight: 700;
+    transition: all 0.2s; border: none; cursor: pointer;
+    font-family: var(--font-body);
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #fff; }
+  .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--accent2); color: #fff; }
+  .btn-danger:hover { background: #ff6a45; }
+
+  .hero-stats {
+    position: absolute; right: 48px; bottom: 80px;
+    display: flex; flex-direction: column; gap: 24px; z-index: 1;
+  }
+  .stat { text-align: right; }
+  .stat-num { font-family: var(--font-display); font-size: 2.5rem; color: var(--accent); line-height: 1; }
+  .stat-label { font-size: calc(0.75rem * var(--font-scale)); letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+  /* ── Sections ── */
+  section { padding: 100px 48px; }
+  .section-tag {
+    font-family: var(--font-mono); font-size: calc(0.78rem * var(--font-scale));
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem);
+    line-height: 0.95; letter-spacing: 1px; margin-bottom: 48px;
+  }
+
+  /* ── Predict section ── */
+  .predict-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start;
+  }
+  .predict-form {
+    background: var(--surface2); padding: 40px; border: 1px solid var(--border);
+  }
+  .predict-form h3 {
+    font-family: var(--font-display); font-size: 2rem; letter-spacing: 2px; margin-bottom: 24px;
+  }
+  .inp-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .inp-group label {
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .inp-group input, .inp-group textarea {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 14px 16px;
+    font-size: calc(0.95rem * var(--font-scale)); font-family: var(--font-body); outline: none;
+    transition: border-color 0.2s; resize: vertical;
+  }
+  .inp-group input:focus, .inp-group textarea:focus { border-color: var(--accent); }
+  .inp-group textarea { min-height: 140px; }
+  .form-actions { display: flex; gap: 12px; margin-top: 8px; }
+
+  /* ── Result box ── */
+  .result-box {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 32px; display: none;
+    animation: fadeIn 0.4s ease;
+  }
+  .result-box.show { display: block; }
+  .result-genre {
+    font-family: var(--font-display); font-size: 4.5rem;
+    line-height: 1; color: var(--accent); letter-spacing: 2px;
+  }
+  .result-label {
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 6px;
+  }
+  .result-meta {
+    margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .result-field { display: flex; flex-direction: column; gap: 4px; }
+  .result-field-label {
+    font-family: var(--font-mono); font-size: calc(0.72rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .result-field-value { font-size: calc(0.95rem * var(--font-scale)); color: var(--text); }
+
+  /* ── Batch section ── */
+  .batch-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start;
+  }
+  .batch-area {
+    background: var(--surface2); padding: 40px; border: 1px solid var(--border);
+  }
+  .batch-area h3 {
+    font-family: var(--font-display); font-size: 2rem; letter-spacing: 2px; margin-bottom: 8px;
+  }
+  .batch-hint {
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    color: var(--muted); letter-spacing: 1px; margin-bottom: 20px;
+  }
+  .batch-area textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 16px;
+    font-size: calc(0.9rem * var(--font-scale)); font-family: var(--font-mono);
+    outline: none; resize: vertical; min-height: 220px;
+    transition: border-color 0.2s;
+  }
+  .batch-area textarea:focus { border-color: var(--accent); }
+
+  /* ── Batch results table ── */
+  .batch-results { margin-top: 0; }
+  .batch-results h3 {
+    font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 2px; margin-bottom: 20px;
+  }
+  .results-table { width: 100%; border-collapse: collapse; }
+  .results-table th {
+    font-family: var(--font-mono); font-size: calc(0.72rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); padding: 10px 16px;
+    border-bottom: 1px solid var(--border); text-align: left;
+  }
+  .results-table td {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    font-size: calc(0.9rem * var(--font-scale)); vertical-align: top;
+  }
+  .results-table tr:hover td { background: var(--surface2); }
+  .genre-pill {
+    display: inline-block; padding: 3px 12px;
+    background: rgba(232,245,58,0.1);
+    color: var(--accent);
+    font-family: var(--font-mono); font-size: calc(0.72rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase;
+    border: 1px solid rgba(232,245,58,0.3);
+  }
+  .empty-state {
+    padding: 60px 0; text-align: center;
+    font-family: var(--font-mono); font-size: calc(0.78rem * var(--font-scale));
+    letter-spacing: 2px; color: var(--muted);
+  }
+  .batch-summary {
+    display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .summary-chip {
+    padding: 6px 16px; border: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .summary-chip span { color: var(--accent); font-size: calc(0.95rem * var(--font-scale)); margin-left: 8px; }
+
+  /* ── Genres grid ── */
+  .genres-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 2px;
+  }
+  .genre-card {
+    background: var(--surface); padding: 20px 24px;
+    border: 1px solid var(--border);
+    transition: all 0.25s; position: relative; overflow: hidden;
+    cursor: default;
+  }
+  .genre-card::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 3px; height: 0; background: var(--accent);
+    transition: height 0.3s;
+  }
+  .genre-card:hover::before { height: 100%; }
+  .genre-card:hover { background: var(--surface2); transform: translateY(-3px); }
+  .genre-name {
+    font-family: var(--font-display); font-size: 1.2rem;
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+  .genre-index {
+    font-family: var(--font-mono); font-size: calc(0.72rem * var(--font-scale));
+    color: var(--muted); letter-spacing: 2px; margin-bottom: 6px;
+  }
+
+  /* ── API docs section ── */
+  .endpoints-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .endpoint-card {
+    background: var(--surface); padding: 28px 32px;
+    border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;
+  }
+  .endpoint-method {
+    display: inline-block; padding: 3px 12px;
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    letter-spacing: 2px; font-weight: 500;
+    text-transform: uppercase; width: fit-content;
+  }
+  .method-get  { background: rgba(58,245,232,0.12); color: var(--accent3); border: 1px solid rgba(58,245,232,0.3); }
+  .method-post { background: rgba(232,245,58,0.12); color: var(--accent);  border: 1px solid rgba(232,245,58,0.3); }
+  .endpoint-path {
+    font-family: var(--font-mono); font-size: calc(1rem * var(--font-scale)); color: var(--text); letter-spacing: 1px;
+  }
+  .endpoint-desc { font-size: calc(0.9rem * var(--font-scale)); color: var(--muted); line-height: 1.6; }
+
+  /* ── Model info cards ── */
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px; margin-bottom: 48px; }
+  .info-card {
+    background: var(--surface); padding: 28px 32px; border: 1px solid var(--border);
+  }
+  .info-card-label {
+    font-family: var(--font-mono); font-size: calc(0.75rem * var(--font-scale));
+    letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .info-card-value {
+    font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 1px; color: var(--accent);
+  }
+  .info-card-sub { font-size: calc(0.875rem * var(--font-scale)); color: var(--muted); margin-top: 4px; }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Error / success banners ── */
+  .banner {
+    padding: 14px 20px; margin-top: 16px;
+    font-family: var(--font-mono); font-size: calc(0.8rem * var(--font-scale)); letter-spacing: 1px;
+    display: none;
+  }
+  .banner.show { display: block; animation: fadeIn 0.3s ease; }
+  .banner-error   { background: rgba(255,77,28,0.1); border: 1px solid rgba(255,77,28,0.3); color: var(--accent2); }
+  .banner-success { background: rgba(232,245,58,0.08); border: 1px solid rgba(232,245,58,0.25); color: var(--accent); }
+
+  /* ── Shared ── */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--accent); }
+
+  footer {
+    padding: 60px 48px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
+  }
+  .footer-logo { font-family: var(--font-display); font-size: 2.5rem; letter-spacing: 4px; color: var(--accent); }
+  .footer-note { font-size: calc(0.82rem * var(--font-scale)); color: var(--muted); font-family: var(--font-mono); line-height: 1.8; }
+
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    section { padding: 60px 20px; }
+    .hero { padding: 0 20px 60px; }
+    .hero-stats { display: none; }
+    .predict-layout, .batch-layout, .endpoints-grid { grid-template-columns: 1fr; }
+    footer { padding: 40px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">CINEAI</div>
+  <ul class="nav-links">
+    <li><a href="#predict">Predict</a></li>
+    <li><a href="#batch">Batch</a></li>
+    <li><a href="#genres">Genres</a></li>
+    <li><a href="#api">API</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="font-ctrl">
+      <button class="font-ctrl-btn sm" onclick="adjustFont(-1)" title="Decrease font size">A−</button>
+      <button class="font-ctrl-btn md active" onclick="adjustFont(0)" title="Reset font size">A</button>
+      <button class="font-ctrl-btn lg" onclick="adjustFont(1)" title="Increase font size">A+</button>
+    </div>
+    <div class="nav-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Checking...</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-tag">AI-Powered Movie Intelligence</div>
+  <h1>PREDICT<span>THE GENRE</span></h1>
+  <p class="hero-sub">
+    Drop a movie title and plot synopsis — our trained NLP model classifies it
+    into one of 27 genres instantly. Powered by TF-IDF and the best-performing
+    classifier from three competing models.
+  </p>
+  <div class="hero-cta">
+    <a href="#predict" class="btn btn-primary">Try It Now</a>
+    <a href="#api" class="btn btn-outline">View API Docs</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num">27</div><div class="stat-label">Genre Classes</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">Models Compared</div></div>
+    <div class="stat"><div class="stat-num">30K</div><div class="stat-label">TF-IDF Features</div></div>
+  </div>
+</section>
+
+<!-- PREDICT -->
+<section id="predict">
+  <div class="section-tag">// 01 — Single Prediction</div>
+  <h2 class="section-title reveal">CLASSIFY<br>A MOVIE</h2>
+
+  <div class="predict-layout">
+    <div class="predict-form reveal">
+      <h3>Enter Movie Details</h3>
+      <div class="inp-group">
+        <label>Movie Title</label>
+        <input type="text" id="movieTitle" placeholder="e.g. The Dark Knight">
+      </div>
+      <div class="inp-group">
+        <label>Plot Synopsis</label>
+        <textarea id="movieDesc" placeholder="e.g. When the menace known as the Joker wreaks havoc and chaos on the people of Gotham..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="predictBtn" onclick="predictGenre()">Predict Genre</button>
+        <button class="btn btn-outline" onclick="clearPredict()">Clear</button>
+      </div>
+      <div class="banner banner-error"   id="predictError"></div>
+      <div class="banner banner-success" id="predictSuccess"></div>
+    </div>
+
+    <div class="reveal">
+      <div class="result-box" id="resultBox">
+        <div class="result-label">Predicted Genre</div>
+        <div class="result-genre" id="resultGenre">—</div>
+        <div class="result-meta">
+          <div class="result-field">
+            <span class="result-field-label">Title</span>
+            <span class="result-field-value" id="resultTitle">—</span>
+          </div>
+          <div class="result-field">
+            <span class="result-field-label">Status</span>
+            <span class="result-field-value" style="color:var(--accent)">Classified</span>
+          </div>
+          <div class="result-field" style="grid-column:1/-1">
+            <span class="result-field-label">Synopsis (truncated)</span>
+            <span class="result-field-value" id="resultDesc" style="color:var(--muted)">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick-try examples -->
+      <div style="margin-top:24px;">
+        <div style="font-family:var(--font-mono);font-size:0.65rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">Quick examples</div>
+        <div style="display:flex;flex-direction:column;gap:8px;" id="exampleBtns"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BATCH -->
+<section id="batch" style="background:var(--surface);border-top:1px solid var(--border);">
+  <div class="section-tag">// 02 — Batch Prediction</div>
+  <h2 class="section-title reveal">CLASSIFY<br>IN BULK</h2>
+
+  <div class="batch-layout">
+    <div class="batch-area reveal">
+      <h3>Paste Movies</h3>
+      <div class="batch-hint">One per line — FORMAT:  title | description</div>
+      <textarea id="batchInput" placeholder="The Matrix | A hacker discovers reality is a simulation controlled by machines.
+Titanic | A love story aboard a ship that sinks after hitting an iceberg.
+The Shining | A family heads to an isolated hotel where the father descends into madness."></textarea>
+      <div class="form-actions" style="margin-top:16px;">
+        <button class="btn btn-primary" id="batchBtn" onclick="predictBatch()">Run Batch</button>
+        <button class="btn btn-outline" onclick="clearBatch()">Clear</button>
+      </div>
+      <div class="banner banner-error" id="batchError"></div>
+    </div>
+
+    <div class="batch-results reveal">
+      <h3>Results</h3>
+      <div class="batch-summary" id="batchSummary" style="display:none">
+        <div class="summary-chip">Total<span id="sumTotal">0</span></div>
+        <div class="summary-chip">Time<span id="sumTime">—</span></div>
+      </div>
+      <table class="results-table" id="batchTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Genre</th>
+          </tr>
+        </thead>
+        <tbody id="batchBody">
+          <tr><td colspan="4"><div class="empty-state">// No results yet — run a batch above</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- GENRES -->
+<section id="genres">
+  <div class="section-tag">// 03 — Supported Classes</div>
+  <h2 class="section-title reveal">27 GENRE<br>CLASSES</h2>
+  <div class="genres-grid" id="genresGrid">
+    <!-- populated by JS -->
+  </div>
+</section>
+
+<!-- API DOCS -->
+<section id="api" style="background:var(--surface);border-top:1px solid var(--border);">
+  <div class="section-tag">// 04 — REST API</div>
+  <h2 class="section-title reveal">API<br>ENDPOINTS</h2>
+
+  <!-- Live model info -->
+  <div class="info-grid reveal" id="modelInfoGrid">
+    <div class="info-card">
+      <div class="info-card-label">API Status</div>
+      <div class="info-card-value" id="apiStatusVal">—</div>
+      <div class="info-card-sub">FastAPI + Uvicorn</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Model Loaded</div>
+      <div class="info-card-value" id="modelLoadedVal">—</div>
+      <div class="info-card-sub">best_model.pkl</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Total Genres</div>
+      <div class="info-card-value" id="totalGenresVal">27</div>
+      <div class="info-card-sub">Classification classes</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Docs</div>
+      <div class="info-card-value" style="font-size:1.2rem;cursor:pointer;" onclick="openDocs()">SWAGGER</div>
+      <div class="info-card-sub">localhost:8000/docs</div>
+    </div>
+  </div>
+
+  <div class="endpoints-grid reveal">
+    <div class="endpoint-card">
+      <span class="endpoint-method method-get">GET</span>
+      <div class="endpoint-path">/health</div>
+      <div class="endpoint-desc">Detailed health check. Returns model load status, artefact paths, and any load errors.</div>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-method method-post">POST</span>
+      <div class="endpoint-path">/predict</div>
+      <div class="endpoint-desc">Predict genre for a single movie. Accepts <code style="color:var(--accent);font-size:0.8rem">title</code> and <code style="color:var(--accent);font-size:0.8rem">description</code> in JSON body.</div>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-method method-post">POST</span>
+      <div class="endpoint-path">/predict/batch</div>
+      <div class="endpoint-desc">Classify up to 100 movies in one call. Returns results list with elapsed time in ms.</div>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-method method-get">GET</span>
+      <div class="endpoint-path">/genres</div>
+      <div class="endpoint-desc">Returns all 27 supported genre classes as a sorted list.</div>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-method method-get">GET</span>
+      <div class="endpoint-path">/model/info</div>
+      <div class="endpoint-desc">Model artefact paths, load status, and the full supported genre list.</div>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-method method-post">POST</span>
+      <div class="endpoint-path">/model/reload</div>
+      <div class="endpoint-desc">Hot-reload model artefacts from disk without restarting the server. Call after re-training.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">CINEAI</div>
+  <div class="footer-note">
+    CINEAI — MOVIE GENRE CLASSIFICATION SYSTEM<br>
+    BUILT WITH FASTAPI · SCIKIT-LEARN · MLFLOW · TFIDF<br>
+    RUN  <span style="color:var(--accent)">uvicorn api.main:app --reload --port 8000</span>  TO START THE API
+  </div>
+</footer>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  // ── Custom cursor ──────────────────────────────────────────────────────────
+  const cursor = document.getElementById('cursor');
+  const ring   = document.getElementById('cursorRing');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cursor.style.transform = `translate(${mx - 5}px, ${my - 5}px)`;
+  });
+  (function animateRing() {
+    rx += (mx - rx - 18) * 0.12;
+    ry += (my - ry - 18) * 0.12;
+    ring.style.transform = `translate(${rx}px, ${ry}px)`;
+    requestAnimationFrame(animateRing);
+  })();
+
+  // ── Scroll reveal ──────────────────────────────────────────────────────────
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(el => { if (el.isIntersecting) el.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ── Quick-example buttons ──────────────────────────────────────────────────
+  const EXAMPLES = [
+    { title: 'The Dark Knight',  desc: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.' },
+    { title: 'Titanic',          desc: 'A seventeen-year-old aristocrat falls in love with a kind but poor artist aboard the luxurious, ill-fated R.M.S. Titanic.' },
+    { title: 'The Shining',      desc: 'A family heads to an isolated hotel for the winter where a sinister presence influences the father into violence, while his psychic son sees horrific forebodings from both past and future.' },
+    { title: 'The Godfather',    desc: 'An organized crime dynastys aging patriarch transfers control of his clandestine empire to his reluctant son.' },
+  ];
+  const exDiv = document.getElementById('exampleBtns');
+  EXAMPLES.forEach(ex => {
+    const b = document.createElement('button');
+    b.className = 'btn btn-outline';
+    b.style.cssText = 'font-size:0.7rem;padding:10px 20px;text-align:left;letter-spacing:1px;text-transform:none;';
+    b.textContent = ex.title;
+    b.onclick = () => {
+      document.getElementById('movieTitle').value = ex.title;
+      document.getElementById('movieDesc').value  = ex.desc;
+    };
+    exDiv.appendChild(b);
+  });
+
+  // ── Genre grid ─────────────────────────────────────────────────────────────
+  const GENRES = [
+    'action','adult','adventure','animation','biography','comedy','crime',
+    'documentary','drama','family','fantasy','game-show','history','horror',
+    'music','musical','mystery','news','reality-tv','romance','sci-fi',
+    'short','sport','talk-show','thriller','war','western'
+  ];
+  const grid = document.getElementById('genresGrid');
+  GENRES.forEach((g, i) => {
+    const d = document.createElement('div');
+    d.className = 'genre-card';
+    d.innerHTML = `<div class="genre-index">${String(i+1).padStart(2,'0')}</div>
+                   <div class="genre-name">${g}</div>`;
+    grid.appendChild(d);
+  });
+
+  // ── API health check ───────────────────────────────────────────────────────
+  async function checkHealth() {
+    const dot  = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    try {
+      const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
+      const d = await r.json();
+      if (d.model_loaded) {
+        dot.className  = 'status-dot online';
+        text.textContent = 'API Online';
+        document.getElementById('apiStatusVal').textContent    = 'ONLINE';
+        document.getElementById('modelLoadedVal').textContent  = 'YES';
+      } else {
+        dot.className  = 'status-dot offline';
+        text.textContent = 'Model Not Loaded';
+        document.getElementById('apiStatusVal').textContent    = 'DEGRADED';
+        document.getElementById('modelLoadedVal').textContent  = 'NO';
+      }
+    } catch {
+      dot.className  = 'status-dot offline';
+      text.textContent = 'API Offline';
+      document.getElementById('apiStatusVal').textContent    = 'OFFLINE';
+      document.getElementById('modelLoadedVal').textContent  = '—';
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 30000);
+
+  // ── Single predict ─────────────────────────────────────────────────────────
+  async function predictGenre() {
+    const title = document.getElementById('movieTitle').value.trim();
+    const desc  = document.getElementById('movieDesc').value.trim();
+    const btn   = document.getElementById('predictBtn');
+    const errEl = document.getElementById('predictError');
+    const sucEl = document.getElementById('predictSuccess');
+
+    errEl.classList.remove('show'); sucEl.classList.remove('show');
+
+    if (!title || !desc) {
+      errEl.textContent = 'Error: title and description are required.';
+      errEl.classList.add('show'); return;
+    }
+
+    btn.innerHTML = '<span class="spinner"></span>Classifying...';
+    btn.disabled  = true;
+
+    try {
+      const res = await fetch(`${API}/predict`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ title, description: desc }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      document.getElementById('resultGenre').textContent = data.predicted_genre.toUpperCase();
+      document.getElementById('resultTitle').textContent = data.title;
+      document.getElementById('resultDesc').textContent  = data.description.slice(0, 120) + '…';
+      document.getElementById('resultBox').classList.add('show');
+    } catch (e) {
+      errEl.textContent = `Error: ${e.message}`;
+      errEl.classList.add('show');
+    } finally {
+      btn.innerHTML = 'Predict Genre';
+      btn.disabled  = false;
+    }
+  }
+
+  function clearPredict() {
+    document.getElementById('movieTitle').value = '';
+    document.getElementById('movieDesc').value  = '';
+    document.getElementById('resultBox').classList.remove('show');
+    document.getElementById('predictError').classList.remove('show');
+    document.getElementById('predictSuccess').classList.remove('show');
+  }
+
+  // ── Batch predict ──────────────────────────────────────────────────────────
+  async function predictBatch() {
+    const raw  = document.getElementById('batchInput').value.trim();
+    const btn  = document.getElementById('batchBtn');
+    const errEl = document.getElementById('batchError');
+    errEl.classList.remove('show');
+
+    if (!raw) { errEl.textContent = 'Error: paste at least one line.'; errEl.classList.add('show'); return; }
+
+    const movies = raw.split('\n')
+      .map(l => l.trim()).filter(Boolean)
+      .map(line => {
+        const sep = line.indexOf('|');
+        if (sep === -1) return { title: line.trim(), description: line.trim() };
+        return { title: line.slice(0, sep).trim(), description: line.slice(sep + 1).trim() };
+      });
+
+    if (movies.length > 100) { errEl.textContent = 'Error: max 100 movies per batch.'; errEl.classList.add('show'); return; }
+
+    btn.innerHTML = '<span class="spinner"></span>Running...';
+    btn.disabled  = true;
+
+    try {
+      const res = await fetch(`${API}/predict/batch`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ movies }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      renderBatchResults(data);
+    } catch (e) {
+      errEl.textContent = `Error: ${e.message}`;
+      errEl.classList.add('show');
+    } finally {
+      btn.innerHTML = 'Run Batch';
+      btn.disabled  = false;
+    }
+  }
+
+  function renderBatchResults(data) {
+    document.getElementById('sumTotal').textContent = data.total;
+    document.getElementById('sumTime').textContent  = `${data.elapsed_ms}ms`;
+    document.getElementById('batchSummary').style.display = 'flex';
+
+    const tbody = document.getElementById('batchBody');
+    tbody.innerHTML = data.results.map((r, i) => `
+      <tr>
+        <td style="color:var(--muted);font-family:var(--font-mono);font-size:calc(0.75rem * var(--font-scale))">${String(i+1).padStart(2,'0')}</td>
+        <td style="font-weight:500">${escHtml(r.title)}</td>
+        <td style="color:var(--muted)">${escHtml(r.description.slice(0, 80))}…</td>
+        <td><span class="genre-pill">${escHtml(r.predicted_genre)}</span></td>
+      </tr>`).join('');
+  }
+
+  function clearBatch() {
+    document.getElementById('batchInput').value = '';
+    document.getElementById('batchBody').innerHTML =
+      '<tr><td colspan="4"><div class="empty-state">// No results yet — run a batch above</div></td></tr>';
+    document.getElementById('batchSummary').style.display = 'none';
+    document.getElementById('batchError').classList.remove('show');
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function openDocs() { window.open(`${API}/docs`, '_blank'); }
+
+  // ── Font size control ──────────────────────────────────────────────────────
+  let fontLevel = 0;
+  const fontScales = [0.85, 0.92, 1, 1.1, 1.2];
+  function adjustFont(dir) {
+    if (dir === 0) { fontLevel = 0; }
+    else { fontLevel = Math.max(-2, Math.min(2, fontLevel + dir)); }
+    document.documentElement.style.setProperty('--font-scale', fontScales[fontLevel + 2]);
+    document.querySelectorAll('.font-ctrl-btn').forEach((b, i) => {
+      b.classList.toggle('active',
+        (i === 0 && fontLevel < 0) ||
+        (i === 1 && fontLevel === 0) ||
+        (i === 2 && fontLevel > 0)
+      );
+    });
+  }
+
+  // Allow Enter key in title field
+  document.getElementById('movieTitle').addEventListener('keydown', e => {
+    if (e.key === 'Enter') predictGenre();
+  });
+</script>
+</body>
+</html>
